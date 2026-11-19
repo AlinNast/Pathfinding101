@@ -1,8 +1,3 @@
-//#define PLAY_IMPLEMENTATION
-//#define PLAY_USING_GAMEOBJECT_MANAGER
-//#include "Constants.h"
-//#include "Play.h"
-
 #include "game.h"
 using namespace Play;
 
@@ -10,7 +5,8 @@ using namespace Play;
 // The entry point for a PlayBuffer program
 void MainGameEntry( PLAY_IGNORE_COMMAND_LINE )
 {
-	Play::CreateManager(DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_SCALE);
+	LoadMap(MAP1_DATA);
+	Play::CreateManager(gridWidth * TILE_SIZE + 1, gridHeight * TILE_SIZE + 1, DISPLAY_SCALE);
 
 }
 
@@ -25,6 +21,8 @@ bool MainGameUpdate( float elapsedTime )
 	if (Tick()) {
 		return true;
 	}
+
+
 	Play::PresentDrawingBuffer();
 
 	return Play::KeyDown(KEY_ESCAPE);
