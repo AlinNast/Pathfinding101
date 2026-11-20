@@ -1,13 +1,20 @@
 #define PLAY_IMPLEMENTATION
 #include "game.h"
+#include <queue>
+#include <climits>
+#include <cstdlib>
 
+
+std::vector<std::vector<Node>> grid;
+int gridWidth = 0, gridHeight = 0;
+int startRow = 0, startCol = 0, goalRow = 0, goalCol = 0;
 
 int framCount = 0;
-std::vector<std::string> grid;
-int gridWidth = 0, gridHeight = 0;
 
 bool Tick() {
 	framCount++;
+
+
 	DrawMap();
 	DrawDebugGrid();
 	
@@ -15,30 +22,48 @@ bool Tick() {
 	return false;
 }
 
+
 // Splits the text into lines, ignoring empty lines and Windows '\r'
 void LoadMap(const std::string& text) {
 
-	grid.clear();
+	//  Split the text into lines (temporary, only used for parsing)
+	std::vector<std::string> lines;
 	std::istringstream stream(text);
 	std::string line;
 	while (std::getline(stream, line)) {
 		if (!line.empty() && line.back() == '\r') line.pop_back();
-		if (!line.empty()) grid.push_back(line);
+		if (!line.empty()) lines.push_back(line);
 	}
+	gridHeight = static_cast<int>(lines.size());
+	gridWidth = lines.empty() ? 0 : static_cast<int>(lines[0].size());
 
-	// make a dynamic grid size to fit many maps
+	//  gridHeight rows, each with gridWidth Nodes, this craetes all the nodes as as defaults
+	grid.assign(gridHeight, std::vector<Node>(gridWidth));
 
-	gridHeight = static_cast<int>(grid.size());
-	gridWidth = static_cast<int>(grid[0].size());
+	for (int row = 0; row < gridHeight; row++) {
+		for (int col = 0; col < gridWidth; col++) {
+			
+			Node& n = grid[row][col]; // get the node at that location to set it up
+
+			n.row = row;
+			n.col = col;
+
+			char c = lines[row][col];
+			n.walkable = (c != 'X');
+			if (c == 'S') { startRow = row; startCol = col; }
+			if (c == 'G') { goalRow = row; goalCol = col; }
+		}
+	}
 }
 
-Play::Colour PickTileColour(char c) {
-	switch (c) {
-	case 'X': return Play::cGrey;    // wall
-	case 'S': return Play::cGreen;   // start
-	case 'G': return Play::cRed;     // goal
-	default:  return Play::cBlack;   // walkable
-	}
+
+Play::Colour TileColour(const Node& n) {
+	if (!n.walkable) return Play::cGrey;
+	if (n.row == startRow && n.col == startCol) return Play::cGreen;
+	if (n.row == goalRow && n.col == goalCol) return Play::cRed;
+	if (n.state == NodeState::Open) return Play::cCyan;
+	if (n.state == NodeState::Closed) return Play::Colour{ 0, 0, 60 };
+	return Play::cBlack;
 }
 
 
@@ -46,12 +71,12 @@ void DrawMap() {
 	for (int row = 0; row < gridHeight; row++) {
 		for (int col = 0; col < gridWidth; col++) {
 			int x = col * TILE_SIZE;
-			// PlayBuffer's y axis points UP, but the first text row is the TOP
-			int y = (gridHeight - 1 - row) * TILE_SIZE + 1;   // +1 matches your grid lines
-			Play::DrawRect({ x, y }, { x + TILE_SIZE, y + TILE_SIZE }, PickTileColour(grid[row][col]), true);
+			int y = (gridHeight - 1 - row) * TILE_SIZE + 1;
+			Play::DrawRect({ x, y }, { x + TILE_SIZE, y + TILE_SIZE }, TileColour(grid[row][col]), true);
 		}
 	}
 }
+
 
 void DrawDebugGrid() {
 	const Play::Colour lineColour{ 20, 20, 20 };   // dark, so it doesn't fight the tiles
@@ -61,4 +86,6 @@ void DrawDebugGrid() {
 }
 
 
-
+float Heuristic(int rowA, int colA) {   // pythagora
+	return static_cast<float>(sqrt((rowA - goalRow) * (rowA - goalRow) + (colA - goalCol) * (colA - goalCol)));
+}

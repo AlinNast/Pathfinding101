@@ -3,15 +3,23 @@
 #include "Constants.h"
 #include "Play.h"
 
+enum class NodeState { Unvisited, Open, Closed };
 
-extern std::vector<std::string> grid;   // grid[row][col]
-extern int gridWidth, gridHeight;       // in tiles
+struct Node {
+	int row = 0, col = 0;
+	bool walkable = true;
+	NodeState state = NodeState::Unvisited;
+	Node* parent = nullptr;
+};
+
+// Declared here, defined in game.cpp
+extern std::vector<std::vector<Node>> grid;   // grid[row][col]
+extern int gridWidth, gridHeight;
+extern int startRow, startCol, goalRow, goalCol;
 
 void LoadMap(const std::string& text);
-
 void DrawMap();
-
-bool Tick();
-
 void DrawDebugGrid();
+float Heuristic(int row, int col);
+bool Tick();
 
