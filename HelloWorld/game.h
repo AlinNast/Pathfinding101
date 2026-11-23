@@ -10,6 +10,10 @@ struct Node {
 	bool walkable = true;
 	NodeState state = NodeState::Unvisited;
 	Node* parent = nullptr;
+	float g = 0.0f;   // real cost from the start
+	float h = 0.0f;   // estimate to the goal
+	float f = 0.0f;   // g + h
+	bool isOnPath = false;
 };
 
 // Declared here, defined in game.cpp
@@ -22,4 +26,5 @@ void DrawMap();
 void DrawDebugGrid();
 float Heuristic(int row, int col);
 bool Tick();
-
+void AStarInit();
+void AStarStep();

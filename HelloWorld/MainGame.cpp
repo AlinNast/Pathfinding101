@@ -6,6 +6,7 @@ using namespace Play;
 void MainGameEntry( PLAY_IGNORE_COMMAND_LINE )
 {
 	LoadMap(MAP1_DATA);
+	AStarInit();
 	Play::CreateManager(gridWidth * TILE_SIZE + 1, gridHeight * TILE_SIZE + 1, DISPLAY_SCALE);
 
 }
