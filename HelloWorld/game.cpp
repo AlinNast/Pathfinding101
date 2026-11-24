@@ -130,7 +130,7 @@ void InitSearch() {
 		AStarInit();
 		break;
 	case Algorithm::DepthFirst:
-		// TODO: call the second algorithm's init function here
+		DFSInit();
 		break;
 	}
 }
@@ -144,7 +144,7 @@ void StepSearch() {
 		AStarStep();
 		break;
 	case Algorithm::DepthFirst:
-		// TODO: call the second algorithm's step function here
+		DFSStep();
 		break;
 	}
 }
@@ -370,9 +370,9 @@ void AStarStep() {
 
 		if (hasLowerF || (hasSameF && candidate->h < best->h)) bestIndex = i;
 	}
-	for (int i = 1; i < static_cast<int>(openList.size()); i++) {
-		if (openList[i]->f < openList[bestIndex]->f) bestIndex = i; // compares the full cost of the open list and saves the best one
-	}
+	//for (int i = 1; i < static_cast<int>(openList.size()); i++) {
+	//	if (openList[i]->f < openList[bestIndex]->f) bestIndex = i; // compares the full cost of the open list and saves the best one
+	//}
 	Node* current = openList[bestIndex];
 	openList.erase(openList.begin() + bestIndex);   // remove it from the open list
 	current->state = NodeState::Closed;  
@@ -452,3 +452,74 @@ void AStarStep() {
 
 #pragma endregion
 
+
+
+#pragma region DepthFirst
+
+void DFSInit() {
+	openList.clear();
+	searchFinished = false;
+
+	Node* start = &grid[startRow][startCol];
+	start->state = NodeState::Open;      // Open = discovered, waiting on the stack
+	openList.push_back(start);
+}
+
+
+void DFSStep() {
+
+	/// --- END CONDITIONS ---
+	if (searchFinished) return;
+	if (openList.empty()) { searchFinished = true; return; }   // nothing left: no path
+
+	// Take the NEWEST tile (top of the stack). This is the only real difference from A*
+	Node* current = openList.back();
+	openList.pop_back();
+	current->state = NodeState::Closed;
+
+	stepCount++;
+
+	// goal condition
+	if (current->row == goalRow && current->col == goalCol) {
+		searchFinished = true;
+		for (Node* n = current; n != nullptr; n = n->parent) {
+			n->isOnPath = true;
+		}
+		return;
+	}
+
+	/// --- DISCOVER NEIGHBOURS ---
+	for (int rowOffset = -1; rowOffset <= 1; rowOffset++) {
+		for (int columnOffset = -1; columnOffset <= 1; columnOffset++) {
+			if (rowOffset == 0 && columnOffset == 0) continue; // ingnore itself
+
+			int neighbourRow = current->row + rowOffset;
+			int neighbourCol = current->col + columnOffset;
+
+			// all the edge cases skip the assigning of a parent and the next step will pick next from the stack
+			// outside the map
+			if (neighbourRow < 0 || neighbourRow >= gridHeight || neighbourCol < 0 || neighbourCol >= gridWidth) continue;
+
+			Node* neighbour = &grid[neighbourRow][neighbourCol];
+
+			if (!neighbour->walkable) continue;                        // wall
+			if (neighbour->state != NodeState::Unvisited) continue;    // already Open or Closed
+
+			// don't cut corners on diagonal moves
+			if (rowOffset != 0 && columnOffset != 0) {
+				if (!grid[current->row + rowOffset][current->col].walkable ||
+					!grid[current->row][current->col + columnOffset].walkable) {
+					continue;
+				}
+			}
+
+
+			// no edge case, advance
+			neighbour->parent = current;
+			neighbour->state = NodeState::Open;    // marked on discovery, so it can never be pushed twice
+			openList.push_back(neighbour);
+		}
+	}
+}
+
+#pragma endregion

@@ -40,3 +40,5 @@ void DrawVisualiser();
 void StartVisualiser();
 void DrawParentArrows();
 Algorithm CurrentAlgorithm();
+void DFSInit();
+void DFSStep();
