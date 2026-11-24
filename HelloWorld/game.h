@@ -42,3 +42,5 @@ void DrawParentArrows();
 Algorithm CurrentAlgorithm();
 void DFSInit();
 void DFSStep();
+void MAInit();
+void MAStep();

@@ -76,6 +76,6 @@ XXXXXXXXXXXXXXXXXXXXXXXXXX
 
 const int MAP_COUNT = sizeof(MAPS) / sizeof(MAPS[0]);
 
-const char* const ALGORITHM_NAMES[] = { "ASTAR", "Depth-First"};   // add more here later
+const char* const ALGORITHM_NAMES[] = { "ASTAR", "Depth-First", "MyAlg"};   // add more here later
 const int ALGORITHM_COUNT = sizeof(ALGORITHM_NAMES) / sizeof(ALGORITHM_NAMES[0]);
 

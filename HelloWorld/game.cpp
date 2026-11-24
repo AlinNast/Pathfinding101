@@ -132,6 +132,9 @@ void InitSearch() {
 	case Algorithm::DepthFirst:
 		DFSInit();
 		break;
+	case Algorithm::MyAlg:
+		MAInit();
+		break;
 	}
 }
 
@@ -145,6 +148,9 @@ void StepSearch() {
 		break;
 	case Algorithm::DepthFirst:
 		DFSStep();
+		break;
+	case Algorithm::MyAlg:
+		MAStep();
 		break;
 	}
 }
@@ -488,7 +494,7 @@ void DFSStep() {
 		return;
 	}
 
-	/// --- DISCOVER NEIGHBOURS ---
+	/// --- Main loop --- 
 	for (int rowOffset = -1; rowOffset <= 1; rowOffset++) {
 		for (int columnOffset = -1; columnOffset <= 1; columnOffset++) {
 			if (rowOffset == 0 && columnOffset == 0) continue; // ingnore itself
@@ -523,3 +529,45 @@ void DFSStep() {
 }
 
 #pragma endregion
+
+
+#pragma region MyAlgoritm
+
+void MAInit() {
+
+	openList.clear();
+	searchFinished = false;
+
+	// set up the start
+	Node* start = &grid[startRow][startCol];   // & gives the address of the node, saves a pointer
+	start->g = 0.0f;                           // -> is "." for pointers
+	start->h = Heuristic(start->row, start->col); // heuristic for the start
+	start->f = start->g + start->h;
+
+	// the start is the first to open
+	start->state = NodeState::Open;
+	openList.push_back(start);
+
+	// add all tiles in line of sight to the open list along with the heuristic cost
+
+	// make the start tile closed but save it as the last "position"
+	
+}
+
+
+void MAStep() {
+	// check for end conditions
+
+	// pick the best tile going in the direction from the open list ( only if its neighbouring the "Current position") and move the current position there
+
+	// redo the "line of sight" check 
+
+	// save the current tile as the current position and close it
+
+	// repeat untill end condition
+}
+
+#pragma endregion
+
+
+
