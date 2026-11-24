@@ -5,6 +5,9 @@
 
 enum class NodeState { Unvisited, Open, Closed };
 
+enum class Algorithm { AStar, DepthFirst };
+
+
 struct Node {
 	int row = 0, col = 0;
 	bool walkable = true;
@@ -20,6 +23,7 @@ struct Node {
 extern std::vector<std::vector<Node>> grid;   // grid[row][col]
 extern int gridWidth, gridHeight;
 extern int startRow, startCol, goalRow, goalCol;
+extern int tileSize, gridOffsetX, gridOffsetY;
 
 void LoadMap(const std::string& text);
 void DrawMap();
@@ -28,3 +32,11 @@ float Heuristic(int row, int col);
 bool Tick();
 void AStarInit();
 void AStarStep();
+void FitGridToWindow();
+void UpdateMenu();
+void DrawMenu();
+void UpdateVisualiser();
+void DrawVisualiser();
+void StartVisualiser();
+void DrawParentArrows();
+Algorithm CurrentAlgorithm();

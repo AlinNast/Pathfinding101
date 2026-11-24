@@ -4,25 +4,213 @@
 #include <climits>
 #include <cstdlib>
 
-
+//////  --- Grid variables
 std::vector<std::vector<Node>> grid;
 int gridWidth = 0, gridHeight = 0;
 int startRow = 0, startCol = 0, goalRow = 0, goalCol = 0;
+int tileSize = 10, gridOffsetX = 0, gridOffsetY = 0;
+
+//////  --- Menu variables
+enum class Screen { Menu, Visualiser };
+Screen currentScreen = Screen::Menu;
+int selectedAlgorithm = 0, selectedMap = 0, menuRow = 0;
+const int MENU_BOX_WIDTH = 140;
+const int MENU_BOX_HEIGHT = 50;
+const int MENU_BOX_GAP = 20;
+const int MENU_FIRST_BOX_LEFT = 260;
+
+//////  --- A Star variables
 std::vector<Node*> openList;
 bool searchFinished = false;
-int framCount = 0;
+bool showParentArrows = true;
+int stepCount;
+
+
 
 bool Tick() {
-	framCount++;
 
+	switch (currentScreen) {
+		case Screen::Menu:
+			UpdateMenu();       
+			DrawMenu();       
+			break;
+		case Screen::Visualiser: // switch on algoritm and map inside those
+			UpdateVisualiser(); 
+			DrawVisualiser(); 
+			break;
+	}
 
-	DrawMap();
-	DrawDebugGrid();
 	
-	/// -----  Input 
-	if (Play::KeyPressed(Play::KEY_SPACE)) AStarStep();
+
 
 	return false;
+}
+
+
+/// <summary>
+/// Return the selected algorim
+/// </summary>
+/// <returns></returns>
+Algorithm CurrentAlgorithm() { return static_cast<Algorithm>(selectedAlgorithm); }
+
+
+#pragma region Menu
+
+
+/// <summary>
+/// Navigate on the menu screen
+/// </summary>
+void UpdateMenu() {
+
+	if (Play::KeyPressed(Play::KEY_UP) || Play::KeyPressed(Play::KEY_DOWN)) menuRow = 1 - menuRow; // top row is algorim, bottom row is the map
+
+	int direction = 0;
+	if (Play::KeyPressed(Play::KEY_RIGHT)) direction = 1;
+	if (Play::KeyPressed(Play::KEY_LEFT))  direction = -1;
+	if (direction != 0) {
+		if (menuRow == 0) selectedAlgorithm = (selectedAlgorithm + direction + ALGORITHM_COUNT) % ALGORITHM_COUNT;
+		else              selectedMap = (selectedMap + direction + MAP_COUNT) % MAP_COUNT;
+	}
+
+	if (Play::KeyPressed(Play::KEY_ENTER)) StartVisualiser();
+}
+
+
+/// One selectable box with centred text. Chosen = filled, and yellow if its row is the active one.
+void DrawMenuBox(int left, int bottom, const char* text, bool isChosen, bool isActiveRow) {
+
+	Play::Point2D bottomLeft = { left, bottom };
+	Play::Point2D topRight = { left + MENU_BOX_WIDTH, bottom + MENU_BOX_HEIGHT };
+
+	if (isChosen) {
+		Play::DrawRect(bottomLeft, topRight, isActiveRow ? Play::cYellow : Play::cGrey, true); // the last bool is the fill
+	}
+	Play::DrawRect(bottomLeft, topRight, Play::cWhite, false);   // outline on every box
+
+	Play::Colour textColour = isChosen ? Play::cBlack : Play::cWhite;
+	Play::DrawDebugText({ left + MENU_BOX_WIDTH / 2, bottom + MENU_BOX_HEIGHT / 2 }, text, textColour);
+}
+
+/// <summary>
+/// Draws info and tiles
+/// </summary>
+void DrawMenu() {
+	// title
+	Play::DrawDebugText({ DISPLAY_WIDTH / 2, DISPLAY_HEIGHT - 100 }, "PATHFINDING", Play::cWhite);
+
+	// Row 0: one column per algorithm
+	const int algorithmRowBottom = 440;
+	Play::DrawDebugText({ 60, algorithmRowBottom + MENU_BOX_HEIGHT / 2 }, "ALGORITHM", menuRow == 0 ? Play::cYellow : Play::cWhite, false);
+	for (int column = 0; column < ALGORITHM_COUNT; column++) {
+		int left = MENU_FIRST_BOX_LEFT + column * (MENU_BOX_WIDTH + MENU_BOX_GAP);
+		DrawMenuBox(left, algorithmRowBottom, ALGORITHM_NAMES[column], column == selectedAlgorithm, menuRow == 0);
+	}
+
+	// Row 1: one column per map
+	const int mapRowBottom = 320;
+	Play::DrawDebugText({ 60, mapRowBottom + MENU_BOX_HEIGHT / 2 }, "MAP", menuRow == 1 ? Play::cYellow : Play::cWhite, false);
+	for (int column = 0; column < MAP_COUNT; column++) {
+		int left = MENU_FIRST_BOX_LEFT + column * (MENU_BOX_WIDTH + MENU_BOX_GAP);
+		DrawMenuBox(left, mapRowBottom, MAPS[column].name, column == selectedMap, menuRow == 1);
+	}
+
+	// instructions
+	Play::DrawDebugText({ DISPLAY_WIDTH / 2, 150 }, "UP DOWN: CHANGE ROW   LEFT RIGHT: CHANGE CHOICE   ENTER: START", Play::cGrey);
+}
+
+#pragma endregion
+
+
+/// <summary>
+/// Starts the selected algoritm init --  called by start visualizer
+/// </summary>
+void InitSearch() {
+	switch (CurrentAlgorithm()) {
+	case Algorithm::AStar:
+		AStarInit();
+		break;
+	case Algorithm::DepthFirst:
+		// TODO: call the second algorithm's init function here
+		break;
+	}
+}
+
+/// <summary>
+/// Called on pressing space in visulizer stage, switches on the selected alg
+/// </summary>
+void StepSearch() {
+	switch (CurrentAlgorithm()) {
+	case Algorithm::AStar:
+		AStarStep();
+		break;
+	case Algorithm::DepthFirst:
+		// TODO: call the second algorithm's step function here
+		break;
+	}
+}
+
+
+/// <summary>
+/// initialises the grid visualizer with the selected algoritm, called by pressing endter in menu
+/// </summary>
+void StartVisualiser() {
+	LoadMap(MAPS[selectedMap].data);   // rebuilds the grid, so every old Node* is now invalid
+	FitGridToWindow();
+	stepCount = 0;				// reset
+	searchFinished = false;     // reset the shared state, so an unfinished algorithm
+	openList.clear();           // doesn't inherit leftovers from the previous run
+	InitSearch();				// initialises the specific selected alg
+	currentScreen = Screen::Visualiser;
+}
+
+
+/// <summary>
+/// listens to input in visualizer stage 
+/// </summary>
+void UpdateVisualiser() {
+	if (Play::KeyPressed(Play::KEY_SPACE)) StepSearch();
+	if (Play::KeyPressed(Play::KEY_P)) showParentArrows = !showParentArrows;
+	if (Play::KeyPressed(Play::KEY_BACKSPACE)) currentScreen = Screen::Menu;
+}
+
+
+/// <summary>
+/// Start visualizer needs to run one becfore this draws the map, debug, arrows and instruction text
+/// </summary>
+void DrawVisualiser() {
+	DrawMap();
+	DrawDebugGrid();
+	if (showParentArrows) DrawParentArrows();
+
+	// Top line: the results to compare
+	std::string results = std::string(ALGORITHM_NAMES[selectedAlgorithm]) + " ON " + MAPS[selectedMap].name; // alg and map
+	results += "   STEPS: " + std::to_string(stepCount);  // counted steps
+	if (searchFinished) {
+		const Node& goal = grid[goalRow][goalCol];
+		if (goal.state == NodeState::Closed) {
+			results += "   PATH FOUND   ";
+		}
+		else {
+			results += "   NO PATH";
+		}
+	}
+	Play::DrawDebugText({ DISPLAY_WIDTH / 2, DISPLAY_HEIGHT - 12 }, results.c_str(), Play::cWhite);
+
+	// Bottom line: the controls
+	Play::DrawDebugText({ DISPLAY_WIDTH / 2, 10 }, "SPACE: STEP   P: ARROWS   BACKSPACE: MENU", Play::cGrey);
+}
+
+
+/// <summary>
+/// scales the tile size to make the map fit on screen
+/// </summary>
+void FitGridToWindow() {
+	const int margin = 20;
+	int availableWidth = DISPLAY_WIDTH - 2 * margin;
+	int availableHeight = DISPLAY_HEIGHT - 2 * margin;
+	tileSize = std::min(availableWidth / gridWidth, availableHeight / gridHeight);   // whole pixels keep tiles crisp
+	gridOffsetX = (DISPLAY_WIDTH - gridWidth * tileSize) / 2;                        // centre the grid
+	gridOffsetY = (DISPLAY_HEIGHT - gridHeight * tileSize) / 2;
 }
 
 
@@ -59,6 +247,9 @@ void LoadMap(const std::string& text) {
 	}
 }
 
+#pragma region Draw
+
+
 
 Play::Colour TileColour(const Node& n) {
 	if (!n.walkable) return Play::cGrey;
@@ -73,9 +264,9 @@ Play::Colour TileColour(const Node& n) {
 void DrawMap() {
 	for (int row = 0; row < gridHeight; row++) {
 		for (int col = 0; col < gridWidth; col++) {
-			int x = col * TILE_SIZE;
-			int y = (gridHeight - 1 - row) * TILE_SIZE + 1;
-			Play::DrawRect({ x, y }, { x + TILE_SIZE, y + TILE_SIZE }, TileColour(grid[row][col]), true);
+			int x = gridOffsetX + col * tileSize;
+			int y = gridOffsetY + (gridHeight - 1 - row) * tileSize;
+			Play::DrawRect({ x, y }, { x + tileSize, y + tileSize }, TileColour(grid[row][col]), true);
 		}
 	}
 	
@@ -83,8 +274,8 @@ void DrawMap() {
 
 // The middle of a tile on screen (same flipped y as DrawMap)
 Play::Point2D TileCentre(const Node& node) {
-	float x = node.col * TILE_SIZE + TILE_SIZE / 2.0f;
-	float y = (gridHeight - 1 - node.row) * TILE_SIZE + 1 + TILE_SIZE / 2.0f;
+	float x = gridOffsetX + node.col * tileSize + tileSize / 2.0f;
+	float y = gridOffsetY + (gridHeight - 1 - node.row) * tileSize + tileSize / 2.0f;
 	return { x, y };
 }
 
@@ -95,7 +286,7 @@ void DrawArrow(Play::Point2D from, Play::Point2D to, Play::Colour colour) {
 	direction.Normalize();                              // length 1, same direction
 	Play::Vector2D sideways = direction.Perpendicular();
 
-	float headLength = TILE_SIZE * 0.3f;
+	float headLength = tileSize * 0.3f;
 	Play::Point2D headBase = to - direction * headLength;
 	Play::DrawLine(to, headBase + sideways * (headLength * 0.5f), colour);
 	Play::DrawLine(to, headBase - sideways * (headLength * 0.5f), colour);
@@ -113,14 +304,21 @@ void DrawParentArrows() {
 }
 
 void DrawDebugGrid() {
-	const Play::Colour lineColour{ 20, 20, 20 };   // dark
-	int w = gridWidth * TILE_SIZE, h = gridHeight * TILE_SIZE;
-	for (int i = 0; i <= w; i += TILE_SIZE) Play::DrawLine({ i, 0 }, { i, h + 1 }, lineColour);
-	for (int i = 1; i <= h + 1; i += TILE_SIZE) Play::DrawLine({ 0, i }, { w, i }, lineColour);
-	if (searchFinished) {
-		DrawParentArrows();
+	const Play::Colour lineColour{ 20, 20, 20 };
+	int width = gridWidth * tileSize;
+	int height = gridHeight * tileSize;
+
+	for (int column = 0; column <= gridWidth; column++) {
+		int x = gridOffsetX + column * tileSize;
+		Play::DrawLine({ x, gridOffsetY }, { x, gridOffsetY + height }, lineColour);
+	}
+	for (int row = 0; row <= gridHeight; row++) {
+		int y = gridOffsetY + row * tileSize;
+		Play::DrawLine({ gridOffsetX, y }, { gridOffsetX + width, y }, lineColour);
 	}
 }
+
+#pragma endregion
 
 
 float Heuristic(int row, int col) {   
@@ -132,6 +330,9 @@ float Heuristic(int row, int col) {
 
 	//return static_cast<float>(sqrt((row - goalRow) * (row - goalRow) + (col - goalCol) * (col - goalCol))); // pithagora
 }
+
+
+#pragma region AStar
 
 
 
@@ -176,6 +377,7 @@ void AStarStep() {
 	openList.erase(openList.begin() + bestIndex);   // remove it from the open list
 	current->state = NodeState::Closed;  
 
+	stepCount++;                         // one step = one tile taken off the open list
 	// Here i can save the state to make replays
 
 	if (current->row == goalRow && current->col == goalCol) {
@@ -248,4 +450,5 @@ void AStarStep() {
 
 }
 
+#pragma endregion
 
