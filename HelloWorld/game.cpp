@@ -303,8 +303,12 @@ void DrawParentArrows() {
 		for (int col = 0; col < gridWidth; col++) {
 			const Node& node = grid[row][col];
 			if (node.parent == nullptr) continue;
-			// *node.parent turns the pointer into the Node it points to
-			DrawArrow(TileCentre(*node.parent), TileCentre(node), Play::cYellow);
+			if (node.isOnPath) {
+				DrawArrow(TileCentre(*node.parent), TileCentre(node), Play::cRed);
+			}
+			else {
+				DrawArrow(TileCentre(*node.parent), TileCentre(node), Play::cYellow);
+			}
 		}
 	}
 }
@@ -533,38 +537,150 @@ void DFSStep() {
 
 #pragma region MyAlgoritm
 
+Node* maCurrent = nullptr;               // where the "navigating AI" is standing
+Node* maTarget = nullptr;                // the visible tile it is currently walking towards
+std::vector<Node*> maHistory;            // every tile it stepped away from, so it can retrace its route
+
+// 8 directions matched by index
+const int DIR_ROW[8] = { 1, 1, 0, -1, -1, -1, 0, 1 };
+const int DIR_COL[8] = { 0, 1, 1,  1,  0, -1, -1, -1 };
+
+
+// a bool is also a number in c++
+int Sign(int value) { return (value > 0) - (value < 0); }
+
+
+// if it has a parent it mean it was visited (or the start) maHistory can forget tiles if the agent turns back
+bool HasAgentVisited(const Node& n) {
+	return n.visited;
+}
+
+
+
+/// <summary>
+/// sets initial values, sets the starting point and the current position, does the initial scan in line of sight
+/// </summary>
 void MAInit() {
 
 	openList.clear();
 	searchFinished = false;
+	maHistory.clear();
+	maTarget = nullptr; // the target tile in line of sight, not the goal
 
-	// set up the start
-	Node* start = &grid[startRow][startCol];   // & gives the address of the node, saves a pointer
-	start->g = 0.0f;                           // -> is "." for pointers
-	start->h = Heuristic(start->row, start->col); // heuristic for the start
-	start->f = start->g + start->h;
-
-	// the start is the first to open
+	Node* start = &grid[startRow][startCol];
+	start->g = 0.0f;
+	start->h = Heuristic(start->row, start->col);
+	start->f = start->h;
 	start->state = NodeState::Open;
-	openList.push_back(start);
 
-	// add all tiles in line of sight to the open list along with the heuristic cost
-
-	// make the start tile closed but save it as the last "position"
+	maCurrent = start;        // the agent stands on the start, which is not a candidate (see HasAgentVisited)
+	MAScan(start);            // first look around
 	
 }
 
 
 void MAStep() {
-	// check for end conditions
+	/// --- END CONDITIONS ---
+	if (searchFinished) return;
 
-	// pick the best tile going in the direction from the open list ( only if its neighbouring the "Current position") and move the current position there
 
-	// redo the "line of sight" check 
+	/// --- Pick the next step ---
+	Node* next = nullptr;
 
-	// save the current tile as the current position and close it
+	if (maTarget != nullptr) {  // if a target is in sight, pick the next target in the direction of target by one tile
+		int rowStep = Sign(maTarget->row - maCurrent->row); // which directio on the  rows
+		int columnStep = Sign(maTarget->col - maCurrent->col); // which direction on the col
+		next = &grid[maCurrent->row + rowStep][maCurrent->col + columnStep];
+		maHistory.push_back(maCurrent);  // current goes to history
+	}
+	else { // if there is not a target close the dead end and go back one tile ( like a stack)
+		maCurrent->state = NodeState::Closed;
+		if (maHistory.empty()) { searchFinished = true; return; }   // back at the start with nothing left: no path
 
-	// repeat untill end condition
+		next = maHistory.back();
+		maHistory.pop_back();
+	}
+
+	// with next picked, time to take a step
+	stepCount++;
+
+	
+	if (!HasAgentVisited(*next)) { // if the next tile is new, add the current to the parrent
+		next->parent = maCurrent;
+		openList.erase(std::remove(openList.begin(), openList.end(), next), openList.end()); // takes next out of the open list
+	}
+	if (next == maTarget) maTarget = nullptr;   // arrived
+	maCurrent = next; // take the step
+	maCurrent->visited = true;
+
+
+	/// --- Goal condition --- 
+	if (maCurrent->row == goalRow && maCurrent->col == goalCol) {
+		searchFinished = true;
+		// iterates on the parented list and turns the path flag true
+		for (Node* n = maCurrent; n != nullptr; n = n->parent) {
+			n->isOnPath = true;
+		}
+		return;
+	}
+
+	MAScan(maCurrent);     // look around from the new position
+}
+
+
+
+void MAScan(Node* from) {
+	// from is the tile to look from, best will become the target if possible
+	Node* best = nullptr;
+
+	// look in all 8 direction ( do the index trick on the premade arrays
+	for (int dir = 0; dir < 8; dir++) {
+		int rowOffset = DIR_ROW[dir];
+		int columnOffset = DIR_COL[dir];
+		int fromRow = from->row;
+		int fromCol = from->col;
+
+		// one direction at the time
+		while (true) {
+			// add one to the direction every iteration
+			int nextRow = fromRow + rowOffset;
+			int nextCol = fromCol + columnOffset;
+
+			// outside the map
+			if (nextRow < 0 || nextRow >= gridHeight || nextCol < 0 || nextCol >= gridWidth) break;
+
+			Node* tile = &grid[nextRow][nextCol];
+
+			if (!tile->walkable) break;                          // walls break the line of sight
+			if (tile->state == NodeState::Closed) break;         // dead ends are treated like walls
+
+			// diagonal view can't squeeze between two walls. No corner cuttin
+			if (rowOffset != 0 && columnOffset != 0) {
+				if (!grid[nextRow][fromCol].walkable || !grid[fromRow][nextCol].walkable) break;
+			}
+
+			// first time this tile is seen: open it and calculate h (h never changes, so once is enough)
+			if (tile->state == NodeState::Unvisited) {
+				tile->h = Heuristic(nextRow, nextCol); // tile is grid[nextRow,nextCol]
+				tile->state = NodeState::Open;
+				openList.push_back(tile);
+			}
+
+			// candidates are tiles in sight that the agent hasn't stood on yet
+			if (!HasAgentVisited(*tile)) { 
+				if (best == nullptr || tile->h < best->h - 0.001f) best = tile;
+			}
+
+			// move the LOOK from location to the next to follow the iteration
+			fromRow = nextRow;
+			fromCol = nextCol;
+		}
+	}
+
+	// Make best the target, but first check if best is better than the current Target
+	if (best != nullptr && (maTarget == nullptr || best->h < maTarget->h - 0.001f)) {
+		maTarget = best;
+	}
 }
 
 #pragma endregion

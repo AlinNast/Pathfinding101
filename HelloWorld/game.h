@@ -5,7 +5,7 @@
 
 enum class NodeState { Unvisited, Open, Closed };
 
-enum class Algorithm { AStar, DepthFirst };
+enum class Algorithm { AStar, DepthFirst, MyAlg };
 
 
 struct Node {
@@ -17,6 +17,7 @@ struct Node {
 	float h = 0.0f;   // estimate to the goal
 	float f = 0.0f;   // g + h
 	bool isOnPath = false;
+	bool visited = false;
 };
 
 // Declared here, defined in game.cpp
@@ -44,3 +45,6 @@ void DFSInit();
 void DFSStep();
 void MAInit();
 void MAStep();
+void MAScan(Node* from);
+int Sign(int value);
+bool HasAgentVisited(const Node& n);
